@@ -1,0 +1,156 @@
+%matplotlib inline
+import matplotlib.pyplot as plt
+import seaborn as sns; sns.set()
+import numpy as np
+import pandas as pd
+import sklearn
+from sklearn.datasets import make_blobs
+from sklearn.cluster import KMeans
+from sklearn.metrics import pairwise_distances_argmin_min
+
+X, y_true = make_blobs(n_samples=300, centers=4,
+                       cluster_std=0.60, random_state=0)
+plt.scatter(X[:, 0], X[:, 1], s=50);
+data=pd.DataFrame(X)
+data.columns= ['x','y']
+def initialize_centroids(k, data):
+
+    n_dims = data.shape[1]
+    centroid_min = data.min().min()
+    centroid_max = data.max().max()
+    centroids = []
+
+    for centroid in range(k):
+        centroid = np.random.uniform(centroid_min, centroid_max, n_dims)
+        centroids.append(centroid)
+
+    centroids = pd.DataFrame(centroids, columns = data.columns)
+
+    return centroids
+
+centroids = initialize_centroids(4, data)
+centroids
+def calculate_error(a,b):
+    '''
+    Given two Numpy Arrays, calculates the root of the sum of squared errores.
+    '''
+    error = np.square(np.sum((a-b)**2))
+
+    return error 
+
+    errors = np.array([])
+for centroid in range(centroids.shape[0]):
+    error = calculate_error(centroids.iloc[centroid, :3], data.iloc[0,:3])
+    errors = np.append(errors, error)
+
+errors
+
+plt.scatter(data.iloc[1:,0], data.iloc[1:,1],  marker = 'o', alpha = 0.2)
+plt.scatter(centroids.iloc[:,0], centroids.iloc[:,1],  marker = 'o', c = 'r')
+plt.scatter(data.iloc[0,0], data.iloc[0,1],  marker = 'o', c = 'g')
+for i in range(centroids.shape[0]):
+    plt.text(centroids.iloc[i,0]+1, centroids.iloc[i,1]+1, s = centroids.index[i], c = 'r')
+
+    np.where(errors == np.amin(errors))[0].tolist()[0]
+    
+def assign_centroid(data, centroids):
+    '''
+    Receives a dataframe of data and centroids and returns a list assigning each observation a centroid.
+    data: a dataframe with all data that will be used.
+    centroids: a dataframe with the centroids. For assignment the index will be used.
+    '''
+
+    n_observations = data.shape[0]
+    centroid_assign = []
+    centroid_errors = []
+    k = centroids.shape[0]
+
+
+    for observation in range(n_observations):
+
+        # Calculate the errror
+        errors = np.array([])
+        for centroid in range(k):
+            error = calculate_error(centroids.iloc[centroid, :3], data.iloc[observation,:3])
+            errors = np.append(errors, error)
+
+        # Calculate closest centroid & error 
+        closest_centroid =  np.where(errors == np.amin(errors))[0].tolist()[0]
+        centroid_error = np.amin(errors)
+
+        # Assign values to lists
+        centroid_assign.append(closest_centroid)
+        centroid_errors.append(centroid_error)
+
+    return (centroid_assign,centroid_errors)
+
+data['centroid'], data['error'] = assign_centroid(data.iloc[:,:2] ,centroids)
+data[['centroid', 'error']].head()
+colors = {0:'red', 1:'blue', 2:'green',3:"yellow",4:"purple"}
+
+plt.scatter(data.iloc[:,0], data.iloc[:,1],  marker = 'o', c = data['centroid'].apply(lambda x: colors[x]), alpha = 0.5)
+plt.scatter(centroids.iloc[:,0], centroids.iloc[:,1],  marker = 'o', s=300, 
+           c = centroids.index.map(lambda x: colors[x]))
+data['error'].sum()
+
+data_columns = ['x','y']
+
+centroids = data.groupby('centroid').agg('mean').loc[:,data_columns].reset_index(drop = True)
+centroids
+
+plt.scatter(data.iloc[:,0], data.iloc[:,1],  marker = 'o', c = data['centroid'].apply(lambda x: colors[x]), alpha = 0.5)
+plt.scatter(centroids.iloc[:,0], centroids.iloc[:,1],  marker = 'o', s=300, 
+           c = centroids.index.map(lambda x: colors[x]))
+def knn(data, k):
+    '''
+    Given a dataset and number of clusters, it clusterizes the data. 
+    data: a DataFrame with all information necessary
+    k: number of clusters to create
+    '''
+
+    # Initialize centroids and error
+    centroids = initialize_centroids(k, data)
+    error = []
+    compr = True
+    i = 0
+
+    while(compr):
+        # Obtain centroids and error
+        data['centroid'], iter_error = assign_centroid(data,centroids)
+        error.append(sum(iter_error))
+        # Recalculate centroids
+        centroids = data.groupby('centroid').agg('mean').reset_index(drop = True)
+
+        # Check if the error has decreased
+        if(len(error)<2):
+            compr = True
+        else:
+            if(round(error[i],3) !=  round(error[i-1],3)):
+                compr = True
+            else:
+                compr = False
+        i = i + 1 
+
+    data['centroid'], iter_error = assign_centroid(data,centroids)
+    centroids = data.groupby('centroid').agg('mean').reset_index(drop = True)
+    return (data['centroid'], iter_error, centroids)
+   data['centroid'], _, centroids =  knn(data.drop(['centroid','error'], axis = 1),4)
+data['centroid'].head()     
+plt.scatter(data.iloc[:,0], data.iloc[:,1],  marker = 'o', c = data['centroid'].apply(lambda x: colors[x]), alpha = 0.5)
+plt.scatter(centroids.iloc[:,0], centroids.iloc[:,1],  marker = 'o', s=300, 
+           c = centroids.index.map(lambda x: colors[x]))
+data['centroid'], _, centroids =  knn(data.drop(['centroid','error'], axis = 1),3)
+data['centroid'].head()     
+plt.scatter(data.iloc[:,0], data.iloc[:,1],  marker = 'o', c = data['centroid'].apply(lambda x: colors[x]), alpha = 0.5)
+plt.scatter(centroids.iloc[:,0], centroids.iloc[:,1],  marker = 'o', s=300, 
+           c = centroids.index.map(lambda x: colors[x]))
+ e = 100
+X_reescala = np.stack((e*X[:, 0], X[:, 1]), axis=1)
+plt.scatter(X_reescala[:, 0], X_reescala[:, 1], s=50);
+datae=pd.DataFrame(X_reescala)
+datae.columns= ['x','y']
+datae['centroid'], _, centroids =  knn(data.drop(['centroid','error'], axis = 1),5)
+datae['centroid'].head()     
+plt.scatter(datae.iloc[:,0], datae.iloc[:,1],  marker = 'o', c = datae['centroid'].apply(lambda x: colors[x]), alpha = 0.5)
+plt.scatter(centroids.iloc[:,0], centroids.iloc[:,1],  marker = 'o', s=300, 
+           c = centroids.index.map(lambda x: colors[x]))
